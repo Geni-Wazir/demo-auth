@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OAuth Redirect</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; }
+    .ok { color: #0a7; }
+    .err { color: #c00; }
+    code, pre { background: #f6f8fa; padding: 8px; border-radius: 8px; display: block; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h1>OAuth Redirect</h1>
+  <p id="status">Processing…</p>
+  <pre id="out"></pre>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+    const code = qs.get("code");
+    const state = qs.get("state");
+    const error = qs.get("error");
+
+    const out = document.getElementById("out");
+    const status = document.getElementById("status");
+
+    // You should have set this before starting OAuth:
+    // sessionStorage.setItem("oauth_state", cryptoRandomString)
+    const expectedState = sessionStorage.getItem("oauth_state");
+
+    function show(kind, msg, obj) {
+      status.className = kind;
+      status.textContent = msg;
+      out.textContent = obj ? JSON.stringify(obj, null, 2) : "";
+    }
+
+    if (error) {
+      show("err", "OAuth error returned", { error, error_description: qs.get("error_description") });
+    } else if (!code) {
+      show("err", "No authorization code found in URL.", Object.fromEntries(qs.entries()));
+    } else if (!state || !expectedState || state !== expectedState) {
+      show("err", "State verification failed. Aborting.", { state, expectedState });
+    } else {
+      show("ok", "Code received & state verified. Exchanging on backend…", { code: code.slice(0, 8) + "…", state });
+
+      // Send the code to your backend for token exchange (do NOT do token exchange in a static page)
+      fetch("/api/oauth/exchange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ code, state })
+      })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || "Exchange failed");
+        // Show only safe info; do not render access/refresh tokens in the page
+        show("ok", "Signed in successfully.", { user: data.user, note: "Tokens stored server-side." });
+        // Clean up URL
+        history.replaceState({}, document.title, location.pathname);
+      })
+      .catch((e) => show("err", "Backend exchange failed.", { message: e.message }));
+    }
+  </script>
+</body>
+</html>
